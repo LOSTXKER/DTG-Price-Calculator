@@ -1,4 +1,4 @@
-export type PaperSize = "A7" | "A6" | "A5" | "A4" | "A3" | "A2" | "custom";
+export type PaperSize = "" | "A7" | "A6" | "A5" | "A4" | "A3" | "A2" | "custom";
 
 export interface PrintSideInput {
   enabled: boolean;
@@ -46,6 +46,9 @@ export interface CostBreakdown {
   sleeveRight: number;
   whiteGarmentDiscount: number;
   totalCostPerPiece: number;
+  sellingPriceBeforeMin: number;
+  minSellingPrice: number;
+  appliedMinSelling: boolean;
   sellingPricePerPiece: number;
   volumeDiscount: VolumeDiscount;
   discountedSellingPricePerPiece: number;
@@ -63,6 +66,9 @@ const COLLAR_LOGO_COST = 30;
 const SLEEVE_COST = 70;
 const WHITE_GARMENT_DISCOUNT = 40;
 const MARKUP = 0.35;
+const MIN_SELLING_SMALL = 100;
+const MIN_SELLING_LARGE = 150;
+const LARGE_SIZE_THRESHOLD = 8;
 
 const VOLUME_DISCOUNT_TIERS: { minQty: number; rate: number; label: string }[] = [
   { minQty: 100, rate: 0.15, label: "100 ตัวขึ้นไป ลด 15%" },
@@ -80,7 +86,7 @@ function getVolumeDiscount(quantity: number): VolumeDiscount {
 }
 
 export const PAPER_SIZES: Record<
-  Exclude<PaperSize, "custom">,
+  Exclude<PaperSize, "" | "custom">,
   { widthInch: number; heightInch: number; label: string }
 > = {
   A7: { widthInch: 3, heightInch: 4, label: 'A7 (3 × 4")' },
@@ -91,7 +97,16 @@ export const PAPER_SIZES: Record<
   A2: { widthInch: 16, heightInch: 21, label: 'A2 (16 × 21")' },
 };
 
+function getMinSellingPrice(front: PrintSideInput, back: PrintSideInput): number {
+  let maxInch = 0;
+  if (front.enabled) maxInch = Math.max(maxInch, getMaxDimensionInch(front));
+  if (back.enabled) maxInch = Math.max(maxInch, getMaxDimensionInch(back));
+  if (maxInch === 0) return 0;
+  return maxInch > LARGE_SIZE_THRESHOLD ? MIN_SELLING_LARGE : MIN_SELLING_SMALL;
+}
+
 function getMaxDimensionInch(side: PrintSideInput): number {
+  if (side.size === "") return 0;
   if (side.size === "custom") {
     return Math.max(side.customWidthInch ?? 0, side.customHeightInch ?? 0);
   }
@@ -148,7 +163,11 @@ export function calculate(input: CalculatorInput): CostBreakdown {
     sleeveRight -
     whiteGarmentDiscount;
 
-  const sellingPricePerPiece = Math.ceil(totalCostPerPiece * (1 + MARKUP));
+  const sellingPriceBeforeMin = Math.ceil(totalCostPerPiece * (1 + MARKUP));
+
+  const minSellingPrice = getMinSellingPrice(input.front, input.back);
+  const appliedMinSelling = sellingPriceBeforeMin < minSellingPrice;
+  const sellingPricePerPiece = Math.max(sellingPriceBeforeMin, minSellingPrice);
 
   const quantity = Math.max(1, input.quantity);
   const volumeDiscount = getVolumeDiscount(quantity);
@@ -166,6 +185,9 @@ export function calculate(input: CalculatorInput): CostBreakdown {
     sleeveRight,
     whiteGarmentDiscount,
     totalCostPerPiece,
+    sellingPriceBeforeMin,
+    minSellingPrice,
+    appliedMinSelling,
     sellingPricePerPiece,
     volumeDiscount,
     discountedSellingPricePerPiece,
