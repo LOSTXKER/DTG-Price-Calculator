@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Role } from "@prisma/client";
+import { createClient } from "@supabase/supabase-js";
 
 const prisma = new PrismaClient();
 
@@ -66,7 +67,66 @@ async function main() {
     });
   }
 
+  await seedAdminProfiles();
+
   console.log("Seed completed.");
+}
+
+async function seedAdminProfiles() {
+  const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (adminEmails.length === 0) {
+    console.log("[seed] no ADMIN_EMAILS, skip admin bootstrap");
+    return;
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceKey) {
+    console.warn(
+      "[seed] missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY, skip admin bootstrap"
+    );
+    return;
+  }
+
+  const supabaseAdmin = createClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  for (const email of adminEmails) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 200,
+    });
+    if (error) {
+      console.warn("[seed] list users failed:", error.message);
+      return;
+    }
+    const found = data.users.find(
+      (u) => u.email?.toLowerCase() === email
+    );
+    if (!found) {
+      console.warn(
+        `[seed] admin email ${email} not found in auth.users (invite via /admin/users first)`
+      );
+      continue;
+    }
+    await prisma.profile.upsert({
+      where: { id: found.id },
+      update: { email, role: Role.ADMIN, isActive: true },
+      create: {
+        id: found.id,
+        email,
+        role: Role.ADMIN,
+        isActive: true,
+      },
+    });
+    console.log(`[seed] admin profile ensured: ${email}`);
+  }
 }
 
 main()

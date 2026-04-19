@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CalculatorInput,
   type CostBreakdown,
   type SideCostBreakdown,
   SIDE_KEYS,
@@ -8,12 +9,15 @@ import {
 import type { PricingConfig } from "@/lib/pricing";
 import { CardSurface } from "@/components/ui/Card";
 import { ChevronDownIcon } from "@/components/icons";
+import SaveQuoteButton from "@/app/_components/SaveQuoteButton";
 
 interface PriceSummaryProps {
   breakdown: CostBreakdown;
   isValid: boolean;
   missingFields: string[];
   config: PricingConfig;
+  input?: CalculatorInput;
+  showSaveCta?: boolean;
 }
 
 const SIDE_ROW_LABELS: Record<(typeof SIDE_KEYS)[number]["id"], string> = {
@@ -254,6 +258,8 @@ export default function PriceSummary({
   isValid,
   missingFields,
   config,
+  input,
+  showSaveCta = true,
 }: PriceSummaryProps) {
   const markupPct = Math.round(config.markup * 100);
   if (!isValid) return <EmptyPriceSummary missingFields={missingFields} />;
@@ -263,6 +269,7 @@ export default function PriceSummary({
     ? breakdown.discountedSellingPricePerPiece
     : breakdown.sellingPricePerPiece;
   const hasAnySide = SIDE_KEYS.some(({ id }) => breakdown.sides[id] !== null);
+  const canSave = Boolean(input) && showSaveCta;
 
   return (
     <CardSurface>
@@ -388,6 +395,22 @@ export default function PriceSummary({
             <CalculationSummary breakdown={breakdown} config={config} />
           </div>
         </details>
+      )}
+
+      {canSave && input && (
+        <div className="px-5 py-4 border-t border-[var(--border)] bg-gradient-to-b from-transparent to-[var(--fill)]/40">
+          <SaveQuoteButton
+            input={input}
+            pricePreview={{
+              perPiece: finalPrice,
+              quantity: breakdown.quantity,
+              total: breakdown.totalSellingPrice,
+            }}
+          />
+          <p className="text-[11.5px] text-[var(--text-tertiary)] text-center mt-2 leading-relaxed">
+            บันทึกพร้อมรหัสออเดอร์ เพื่อกลับมาดูย้อนหลังได้
+          </p>
+        </div>
       )}
     </CardSurface>
   );

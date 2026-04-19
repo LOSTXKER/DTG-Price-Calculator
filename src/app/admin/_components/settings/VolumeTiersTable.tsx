@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { VolumeTierConfig } from "@/lib/pricing";
-import { upsertTier, deleteTier } from "../actions";
+import { upsertTier, deleteTier } from "@/app/admin/actions/settings";
 import {
   SettingsCard,
   btnDanger,

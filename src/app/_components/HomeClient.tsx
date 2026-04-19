@@ -70,14 +70,31 @@ export default function HomeClient({ config }: { config: PricingConfig }) {
         rightSlot={
           <button
             onClick={handleReset}
-            className="text-[13px] text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium transition-colors"
+            className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-colors"
           >
             รีเซ็ต
           </button>
         }
       />
 
-      <main className="max-w-6xl mx-auto px-5 py-6 pb-28 lg:pb-6">
+      <main className="max-w-6xl mx-auto px-5 py-5 pb-28 lg:pb-6">
+        <div className="mb-5 flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--accent)] bg-[var(--accent)]/10 rounded-full px-2 py-0.5 uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                ใหม่
+              </span>
+            </div>
+            <h1 className="text-[22px] font-semibold tracking-tight leading-tight">
+              สร้างรายการคำนวณราคา
+            </h1>
+            <p className="text-[13px] text-[var(--text-tertiary)] mt-1">
+              กรอกข้อมูล 3 ขั้นตอน · บันทึกพร้อมรหัสออเดอร์ เพื่อกลับมาดูย้อนหลังได้
+            </p>
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-5">
           <div className="flex-1 min-w-0 space-y-3">
             <GarmentColorSection
@@ -101,22 +118,24 @@ export default function HomeClient({ config }: { config: PricingConfig }) {
               onQuantity={setQuantity}
               config={config}
             />
-
-            <BillCopySection
-              sideStates={sideStates}
-              breakdown={breakdown}
-              config={config}
-            />
           </div>
 
           <div className="hidden lg:block lg:w-[360px] shrink-0">
-            <div className="lg:sticky lg:top-20">
+            <div className="lg:sticky lg:top-20 space-y-3">
               <PriceSummary
                 breakdown={breakdown}
                 isValid={isValid}
                 missingFields={missingFields}
                 config={config}
+                input={input}
               />
+              {isValid && (
+                <BillCopySection
+                  sideStates={sideStates}
+                  breakdown={breakdown}
+                  config={config}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -127,6 +146,8 @@ export default function HomeClient({ config }: { config: PricingConfig }) {
         isValid={isValid}
         missingFields={missingFields}
         config={config}
+        input={input}
+        sideStates={sideStates}
       />
     </>
   );

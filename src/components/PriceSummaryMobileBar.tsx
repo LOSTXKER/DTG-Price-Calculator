@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { type CostBreakdown } from "@/lib/calculator";
+import { type CalculatorInput, type CostBreakdown } from "@/lib/calculator";
 import type { PricingConfig } from "@/lib/pricing";
+import type { SideStates } from "@/lib/state";
 import PriceSummary from "@/components/PriceSummary";
+import BillCopySection from "@/components/sections/BillCopySection";
+import SaveQuoteButton from "@/app/_components/SaveQuoteButton";
 import { CloseIcon } from "@/components/icons";
 
 export default function PriceSummaryMobileBar({
@@ -11,11 +14,15 @@ export default function PriceSummaryMobileBar({
   isValid,
   missingFields,
   config,
+  input,
+  sideStates,
 }: {
   breakdown: CostBreakdown;
   isValid: boolean;
   missingFields: string[];
   config: PricingConfig;
+  input?: CalculatorInput;
+  sideStates?: SideStates;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -26,25 +33,45 @@ export default function PriceSummaryMobileBar({
 
   return (
     <>
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[var(--card)]/95 backdrop-blur-lg border-t border-[var(--border)] px-5 py-3 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-wider">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-[var(--card)]/95 backdrop-blur-lg border-t border-[var(--border)] px-4 py-2.5 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          className="flex-1 min-w-0 text-left"
+        >
+          <p className="text-[10.5px] text-[var(--text-tertiary)] uppercase tracking-wider leading-none">
             ราคาขาย / ตัว
           </p>
-          <p className="text-[20px] font-bold tabular-nums leading-tight">
+          <p className="text-[20px] font-bold tabular-nums leading-tight mt-0.5">
             {isValid ? finalPrice.toLocaleString("th-TH") : "—"}
             <span className="text-[13px] font-semibold text-[var(--text-tertiary)] ml-0.5">
               ฿
             </span>
+            <span className="ml-2 text-[11px] text-[var(--accent)] font-medium">
+              ดูสรุป →
+            </span>
           </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          className="px-4 py-2.5 rounded-xl bg-[var(--accent)] text-white text-[13px] font-medium hover:bg-[var(--accent-hover)] transition-colors"
-        >
-          ดูรายละเอียด
         </button>
+
+        {isValid && input ? (
+          <SaveQuoteButton
+            input={input}
+            variant="mobile"
+            pricePreview={{
+              perPiece: finalPrice,
+              quantity: breakdown.quantity,
+              total: breakdown.totalSellingPrice,
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-[var(--fill)] text-[var(--text-secondary)] text-[13px] font-medium shrink-0"
+          >
+            ดูรายละเอียด
+          </button>
+        )}
       </div>
 
       {sheetOpen && (
@@ -64,13 +91,21 @@ export default function PriceSummaryMobileBar({
                 <CloseIcon />
               </button>
             </div>
-            <div className="p-4">
+            <div className="p-4 space-y-3">
               <PriceSummary
                 breakdown={breakdown}
                 isValid={isValid}
                 missingFields={missingFields}
                 config={config}
+                input={input}
               />
+              {isValid && sideStates && (
+                <BillCopySection
+                  sideStates={sideStates}
+                  breakdown={breakdown}
+                  config={config}
+                />
+              )}
             </div>
           </div>
         </div>

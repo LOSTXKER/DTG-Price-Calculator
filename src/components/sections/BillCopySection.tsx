@@ -8,7 +8,7 @@ import {
 } from "@/lib/calculator";
 import type { PricingConfig, PaperSizeConfig } from "@/lib/pricing";
 import type { SideStates } from "@/lib/state";
-import { Section } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { CheckIcon } from "@/components/icons";
 
 const POSITION_LABEL: Record<SideId, string> = {
@@ -63,10 +63,8 @@ function getSizeText(
 interface BillRow {
   id: SideId;
   position: string;
-  sizeText: string;
-  ccText: string;
   printSizeFull: string;
-  cost: number;
+  sellingPrice: number;
 }
 
 export default function BillCopySection({
@@ -81,6 +79,12 @@ export default function BillCopySection({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const rows = useMemo<BillRow[]>(() => {
+    const markupMul = 1 + config.markup;
+    const discountMul =
+      breakdown.volumeDiscount.rate > 0
+        ? 1 - breakdown.volumeDiscount.rate
+        : 1;
+
     return SIDE_KEYS.filter(({ id }) => sideStates[id].input.enabled).map(
       ({ id }) => {
         const s = sideStates[id].input;
@@ -92,17 +96,17 @@ export default function BillCopySection({
           config.paperSizes
         );
         const ccText = `${fmtCC(s.colorCC)}/${fmtCC(s.whiteCC)} CC`;
+        const sideCost = breakdown.sides[id]?.finalCost ?? 0;
+        const sellingPrice = Math.ceil(sideCost * markupMul * discountMul);
         return {
           id,
           position: POSITION_LABEL[id],
-          sizeText,
-          ccText,
           printSizeFull: `${sizeText} ${ccText}`,
-          cost: breakdown.sides[id]?.finalCost ?? 0,
+          sellingPrice,
         };
       }
     );
-  }, [sideStates, breakdown, config.paperSizes]);
+  }, [sideStates, breakdown, config.paperSizes, config.markup]);
 
   if (rows.length === 0) return null;
 
@@ -121,112 +125,54 @@ export default function BillCopySection({
     setTimeout(() => setCopiedKey((c) => (c === key ? null : c)), 1200);
   };
 
-  const copyAllAsTSV = () => {
-    const header = ["ตำแหน่ง", "ขนาดพิมพ์", "ค่าสกรีน (ต่อหน่วย)"].join("\t");
-    const body = rows
-      .map((r) => [r.position, r.printSizeFull, fmtBaht(r.cost)].join("\t"))
-      .join("\n");
-    copy(`${header}\n${body}`, "__all");
-  };
-
   return (
-    <Section
-      num="4"
-      title="ข้อความสำหรับบิล"
-      hint="คลิกขนาดพิมพ์ / ค่าสกรีน เพื่อคัดลอก"
-    >
-      <div className="space-y-3">
-        {/* Desktop / tablet table */}
-        <div className="hidden sm:block overflow-x-auto -mx-1 px-1">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                <th className="text-left pb-2 pr-3 font-semibold">ตำแหน่ง</th>
-                <th className="text-left pb-2 pr-3 font-semibold">ขนาดพิมพ์</th>
-                <th className="text-right pb-2 pl-3 font-semibold">
-                  ค่าสกรีน (ต่อหน่วย)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-[var(--border)] align-middle"
-                >
-                  <td className="py-2 pr-3">
-                    <span className="text-[13px] text-[var(--text-primary)]">
-                      {r.position}
-                    </span>
-                  </td>
-                  <td className="py-2 pr-3">
-                    <CopyChip
-                      text={r.printSizeFull}
-                      copied={copiedKey === `${r.id}-size`}
-                      onClick={() => copy(r.printSizeFull, `${r.id}-size`)}
-                      mono
-                    />
-                  </td>
-                  <td className="py-2 pl-3 text-right">
-                    <CopyChip
-                      text={fmtBaht(r.cost)}
-                      copied={copiedKey === `${r.id}-cost`}
-                      onClick={() => copy(fmtBaht(r.cost), `${r.id}-cost`)}
-                      mono
-                      align="right"
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <Card padding="px-4 py-4">
+      <header className="flex items-center justify-between mb-3">
+        <p className="text-[13px] font-semibold text-[var(--text-primary)]">
+          ข้อความสำหรับบิล
+        </p>
+        <p className="text-[11px] text-[var(--text-tertiary)]">
+          คลิกเพื่อคัดลอก
+        </p>
+      </header>
 
-        {/* Mobile stacked */}
-        <div className="sm:hidden space-y-2">
-          {rows.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-xl bg-[var(--fill)]/50 p-3 space-y-1.5"
-            >
-              <MobileFieldStatic label="ตำแหน่ง" value={r.position} />
-              <MobileFieldCopy
-                label="ขนาดพิมพ์"
-                value={r.printSizeFull}
-                copied={copiedKey === `${r.id}-size`}
-                onClick={() => copy(r.printSizeFull, `${r.id}-size`)}
-              />
-              <MobileFieldCopy
-                label="ค่าสกรีน (ต่อหน่วย)"
-                value={fmtBaht(r.cost)}
-                copied={copiedKey === `${r.id}-cost`}
-                onClick={() => copy(fmtBaht(r.cost), `${r.id}-cost`)}
+      <div className="space-y-2">
+        {rows.map((r) => (
+          <div
+            key={r.id}
+            className="rounded-xl bg-[var(--fill)]/60 p-2.5 space-y-1.5"
+          >
+            <p className="text-[11px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
+              {r.position}
+            </p>
+            <CopyChip
+              text={r.printSizeFull}
+              copied={copiedKey === `${r.id}-size`}
+              onClick={() => copy(r.printSizeFull, `${r.id}-size`)}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] text-[var(--text-tertiary)]">
+                ราคาสกรีน
+              </span>
+              <CopyChip
+                text={fmtBaht(r.sellingPrice)}
+                copied={copiedKey === `${r.id}-price`}
+                onClick={() => copy(fmtBaht(r.sellingPrice), `${r.id}-price`)}
+                compact
               />
             </div>
-          ))}
-        </div>
-
-        <div className="pt-1 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[11px] text-[var(--text-tertiary)]">
-            ค่าสกรีน = ต้นทุนสกรีนของตำแหน่งนั้น (ก่อน pre-treatment, markup)
-          </p>
-          <button
-            type="button"
-            onClick={copyAllAsTSV}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--accent)] text-white text-[13px] font-medium hover:bg-[var(--accent-hover)] transition-colors"
-          >
-            {copiedKey === "__all" ? (
-              <>
-                <CheckIcon stroke="white" />
-                คัดลอกทั้งตารางแล้ว
-              </>
-            ) : (
-              "คัดลอกทั้งตาราง (วางใน Excel ได้)"
-            )}
-          </button>
-        </div>
+          </div>
+        ))}
       </div>
-    </Section>
+
+      <p className="text-[10.5px] text-[var(--text-tertiary)] mt-2.5 leading-relaxed">
+        ราคาสกรีน = ราคาขายของตำแหน่งนั้น (รวม markup
+        {breakdown.volumeDiscount.rate > 0
+          ? ` + ส่วนลด ${Math.round(breakdown.volumeDiscount.rate * 100)}%`
+          : ""}
+        แล้ว · ยังไม่รวม pre-treatment, โลโก้คอ)
+      </p>
+    </Card>
   );
 }
 
@@ -234,25 +180,25 @@ function CopyChip({
   text,
   copied,
   onClick,
-  mono,
-  align = "left",
+  compact,
 }: {
   text: string;
   copied: boolean;
   onClick: () => void;
-  mono?: boolean;
-  align?: "left" | "right";
+  compact?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title="คลิกเพื่อคัดลอก"
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[13px] font-medium transition-all max-w-full ${
+      className={`inline-flex items-center justify-between gap-2 rounded-lg text-[12.5px] font-medium tabular-nums transition-all max-w-full ${
+        compact ? "px-2 py-0.5" : "w-full px-2.5 py-1.5"
+      } ${
         copied
           ? "bg-[var(--green-bg)] text-[var(--green)]"
-          : "bg-[var(--fill)] text-[var(--text-primary)] hover:bg-[var(--card-hover)]"
-      } ${mono ? "tabular-nums" : ""} ${align === "right" ? "ml-auto" : ""}`}
+          : "bg-[var(--card)] text-[var(--text-primary)] hover:bg-[var(--card-hover)] shadow-[0_0_0_1px_var(--border)]"
+      }`}
     >
       <span className="truncate">{text}</span>
       {copied ? (
@@ -264,44 +210,6 @@ function CopyChip({
   );
 }
 
-function MobileFieldCopy({
-  label,
-  value,
-  copied,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  copied: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[12px] text-[var(--text-tertiary)] shrink-0">
-        {label}
-      </span>
-      <CopyChip text={value} copied={copied} onClick={onClick} mono />
-    </div>
-  );
-}
-
-function MobileFieldStatic({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-[12px] text-[var(--text-tertiary)] shrink-0">
-        {label}
-      </span>
-      <span className="text-[13px] text-[var(--text-primary)]">{value}</span>
-    </div>
-  );
-}
-
 function CopyIcon() {
   return (
     <svg
@@ -310,7 +218,7 @@ function CopyIcon() {
       viewBox="0 0 16 16"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="opacity-60"
+      className="opacity-60 shrink-0"
     >
       <rect
         x="4.5"

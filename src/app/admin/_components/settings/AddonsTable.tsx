@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { AddonConfig } from "@/lib/pricing";
-import { upsertAddon, deleteAddon } from "../actions";
+import { upsertAddon, deleteAddon } from "@/app/admin/actions/settings";
 import {
   SettingsCard,
   btnDanger,

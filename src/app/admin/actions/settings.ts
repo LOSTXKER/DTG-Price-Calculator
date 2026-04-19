@@ -46,7 +46,7 @@ function int(formData: FormData, key: string): number {
 function refresh() {
   invalidatePricingCache();
   revalidatePath("/");
-  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
 }
 
 export async function updatePricing(formData: FormData): Promise<ActionResult> {

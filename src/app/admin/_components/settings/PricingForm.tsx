@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { PricingConfig } from "@/lib/pricing";
-import { updatePricing } from "../actions";
+import { updatePricing } from "@/app/admin/actions/settings";
 import {
   FieldLabel,
   SettingsCard,

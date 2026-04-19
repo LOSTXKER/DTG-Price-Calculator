@@ -47,3 +47,38 @@ model Addon {
   cost    Float
   enabled Boolean @default(true)
 }
+
+enum Role {
+  USER
+  ADMIN
+}
+
+/// แมปกับ auth.users.id ใน Supabase
+model Profile {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  name      String?
+  role      Role     @default(USER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  quotes Quote[]
+}
+
+/// ประวัติการคำนวณราคาแต่ละครั้ง
+model Quote {
+  id             String   @id @default(cuid())
+  name           String
+  input          Json
+  breakdown      Json
+  configSnapshot Json
+  createdById    String   @db.Uuid
+  createdBy      Profile  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([createdById, createdAt])
+  @@index([name])
+}

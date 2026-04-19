@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { PaperSizeConfig } from "@/lib/pricing";
-import { upsertPaperSize, deletePaperSize } from "../actions";
+import { upsertPaperSize, deletePaperSize } from "@/app/admin/actions/settings";
 import {
   SettingsCard,
   btnDanger,

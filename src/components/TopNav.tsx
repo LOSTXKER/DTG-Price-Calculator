@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useCurrentUser } from "@/app/(main)/_components/UserContext";
+import { logoutAction } from "@/app/login/actions";
 
 interface TopNavProps {
   rightSlot?: React.ReactNode;
@@ -10,11 +12,13 @@ interface TopNavProps {
 
 const TABS = [
   { href: "/", label: "คำนวณราคา" },
+  { href: "/quotes", label: "ประวัติ" },
   { href: "/anajak", label: "แปลงออเดอร์ Anajak" },
 ];
 
 export default function TopNav({ rightSlot }: TopNavProps) {
   const pathname = usePathname();
+  const user = useCurrentUser();
 
   return (
     <header className="sticky top-0 z-50 backdrop-blur-xl bg-[var(--header-bg)] border-b border-[var(--border)]">
@@ -51,13 +55,33 @@ export default function TopNav({ rightSlot }: TopNavProps) {
 
         <div className="flex items-center gap-3 shrink-0">
           {rightSlot}
-          <Link
-            href="/admin/settings"
-            className="text-[13px] text-[var(--text-tertiary)] hover:text-[var(--accent)] font-medium transition-colors"
-            title="Admin"
-          >
-            ตั้งค่า
-          </Link>
+          {user?.isAdmin && (
+            <Link
+              href="/admin"
+              className="text-[13px] text-[var(--text-tertiary)] hover:text-[var(--accent)] font-medium transition-colors"
+              title="Admin Portal"
+            >
+              Admin
+            </Link>
+          )}
+          {user && (
+            <span
+              className="hidden md:inline text-[12px] text-[var(--text-tertiary)] truncate max-w-[180px]"
+              title={user.email}
+            >
+              {user.email}
+            </span>
+          )}
+          {user && (
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--red)] font-medium transition-colors"
+              >
+                ออก
+              </button>
+            </form>
+          )}
           <ThemeToggle />
         </div>
       </div>
