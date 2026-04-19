@@ -1,4 +1,21 @@
-export type PaperSize = "" | "A7" | "A6" | "A5" | "A4" | "A3" | "A2" | "custom";
+import type { PricingConfig } from "@/lib/pricing";
+
+export type PaperSize = "" | "custom" | string;
+
+export type SideId = "front" | "back" | "sleeveLeft" | "sleeveRight";
+
+export interface SideMeta {
+  id: SideId;
+  label: string;
+  allowSmallFlat: boolean;
+}
+
+export const SIDE_KEYS: SideMeta[] = [
+  { id: "front", label: "หน้า", allowSmallFlat: true },
+  { id: "back", label: "หลัง", allowSmallFlat: true },
+  { id: "sleeveLeft", label: "แขนซ้าย", allowSmallFlat: false },
+  { id: "sleeveRight", label: "แขนขวา", allowSmallFlat: false },
+];
 
 export interface PrintSideInput {
   enabled: boolean;
@@ -11,14 +28,11 @@ export interface PrintSideInput {
 
 export interface AddonsInput {
   collarLogo: boolean;
-  sleeveLeft: boolean;
-  sleeveRight: boolean;
 }
 
 export interface CalculatorInput {
   isWhiteGarment: boolean;
-  front: PrintSideInput;
-  back: PrintSideInput;
+  sides: Record<SideId, PrintSideInput>;
   addons: AddonsInput;
   quantity: number;
 }
@@ -38,12 +52,9 @@ export interface VolumeDiscount {
 }
 
 export interface CostBreakdown {
-  front: SideCostBreakdown | null;
-  back: SideCostBreakdown | null;
+  sides: Record<SideId, SideCostBreakdown | null>;
   pretreatment: number;
   collarLogo: number;
-  sleeveLeft: number;
-  sleeveRight: number;
   whiteGarmentDiscount: number;
   totalCostPerPiece: number;
   sellingPriceBeforeMin: number;
@@ -57,27 +68,12 @@ export interface CostBreakdown {
   totalSellingPrice: number;
 }
 
-const COST_PER_CC = 13;
-const SMALL_DESIGN_FLAT_COST = 40;
-const MAX_INCH_FOR_MINIMUM = 5;
-const PRETREATMENT_FRONT_ONLY = 40;
-const PRETREATMENT_FRONT_AND_BACK = 70;
-const COLLAR_LOGO_COST = 30;
-const SLEEVE_COST = 70;
-const WHITE_GARMENT_DISCOUNT = 40;
-const MARKUP = 0.35;
-const MIN_SELLING_SMALL = 100;
-const MIN_SELLING_LARGE = 150;
-const LARGE_SIZE_THRESHOLD = 8;
-
-const VOLUME_DISCOUNT_TIERS: { minQty: number; rate: number; label: string }[] = [
-  { minQty: 100, rate: 0.15, label: "100 ตัวขึ้นไป ลด 15%" },
-  { minQty: 50, rate: 0.10, label: "50 ตัวขึ้นไป ลด 10%" },
-  { minQty: 30, rate: 0.05, label: "30 ตัวขึ้นไป ลด 5%" },
-];
-
-function getVolumeDiscount(quantity: number): VolumeDiscount {
-  for (const tier of VOLUME_DISCOUNT_TIERS) {
+function getVolumeDiscount(
+  quantity: number,
+  config: PricingConfig
+): VolumeDiscount {
+  const sorted = [...config.volumeTiers].sort((a, b) => b.minQty - a.minQty);
+  for (const tier of sorted) {
     if (quantity >= tier.minQty) {
       return { rate: tier.rate, label: tier.label };
     }
@@ -85,44 +81,48 @@ function getVolumeDiscount(quantity: number): VolumeDiscount {
   return { rate: 0, label: "" };
 }
 
-export const PAPER_SIZES: Record<
-  Exclude<PaperSize, "" | "custom">,
-  { widthInch: number; heightInch: number; label: string }
-> = {
-  A7: { widthInch: 3, heightInch: 4, label: 'A7 (3 × 4")' },
-  A6: { widthInch: 4, heightInch: 6, label: 'A6 (4 × 6")' },
-  A5: { widthInch: 6, heightInch: 8, label: 'A5 (6 × 8")' },
-  A4: { widthInch: 8, heightInch: 12, label: 'A4 (8 × 12")' },
-  A3: { widthInch: 12, heightInch: 16, label: 'A3 (12 × 16")' },
-  A2: { widthInch: 16, heightInch: 21, label: 'A2 (16 × 21")' },
-};
-
-function getMinSellingPrice(front: PrintSideInput, back: PrintSideInput): number {
-  let maxInch = 0;
-  if (front.enabled) maxInch = Math.max(maxInch, getMaxDimensionInch(front));
-  if (back.enabled) maxInch = Math.max(maxInch, getMaxDimensionInch(back));
-  if (maxInch === 0) return 0;
-  return maxInch > LARGE_SIZE_THRESHOLD ? MIN_SELLING_LARGE : MIN_SELLING_SMALL;
-}
-
-function getMaxDimensionInch(side: PrintSideInput): number {
+export function getMaxDimensionInch(
+  side: PrintSideInput,
+  config: PricingConfig
+): number {
   if (side.size === "") return 0;
   if (side.size === "custom") {
     return Math.max(side.customWidthInch ?? 0, side.customHeightInch ?? 0);
   }
-  const info = PAPER_SIZES[side.size];
+  const info = config.paperSizes.find((p) => p.code === side.size);
+  if (!info) return 0;
   return Math.max(info.widthInch, info.heightInch);
 }
 
-function calculateSideCost(side: PrintSideInput): SideCostBreakdown {
+function getMinSellingPrice(
+  sides: Record<SideId, PrintSideInput>,
+  config: PricingConfig
+): number {
+  let maxInch = 0;
+  for (const { id } of SIDE_KEYS) {
+    const s = sides[id];
+    if (s.enabled) maxInch = Math.max(maxInch, getMaxDimensionInch(s, config));
+  }
+  if (maxInch === 0) return 0;
+  return maxInch > config.largeSizeThreshold
+    ? config.minSellingLarge
+    : config.minSellingSmall;
+}
+
+function calculateSideCost(
+  side: PrintSideInput,
+  allowSmallFlat: boolean,
+  config: PricingConfig
+): SideCostBreakdown {
   const colorCCRounded = Math.ceil(side.colorCC);
   const whiteCCRounded = Math.ceil(side.whiteCC);
   const totalCC = colorCCRounded + whiteCCRounded;
-  const ccBasedCost = totalCC * COST_PER_CC;
+  const ccBasedCost = totalCC * config.costPerCc;
 
-  const maxInch = getMaxDimensionInch(side);
-  const isSmall = maxInch > 0 && maxInch <= MAX_INCH_FOR_MINIMUM;
-  const finalCost = isSmall ? SMALL_DESIGN_FLAT_COST : ccBasedCost;
+  const maxInch = getMaxDimensionInch(side, config);
+  const isSmall =
+    allowSmallFlat && maxInch > 0 && maxInch <= config.maxInchForMinimum;
+  const finalCost = isSmall ? config.smallDesignFlatCost : ccBasedCost;
 
   return {
     colorCCRounded,
@@ -134,65 +134,67 @@ function calculateSideCost(side: PrintSideInput): SideCostBreakdown {
   };
 }
 
-export function calculate(input: CalculatorInput): CostBreakdown {
-  const front = input.front.enabled ? calculateSideCost(input.front) : null;
-  const back = input.back.enabled ? calculateSideCost(input.back) : null;
+export function calculate(
+  input: CalculatorInput,
+  config: PricingConfig
+): CostBreakdown {
+  const sides = Object.fromEntries(
+    SIDE_KEYS.map(({ id, allowSmallFlat }) => [
+      id,
+      input.sides[id].enabled
+        ? calculateSideCost(input.sides[id], allowSmallFlat, config)
+        : null,
+    ])
+  ) as Record<SideId, SideCostBreakdown | null>;
 
-  const hasFront = front !== null;
-  const hasBack = back !== null;
-
+  const enabledCount = SIDE_KEYS.filter(({ id }) => sides[id] !== null).length;
   let pretreatment = 0;
-  if (hasFront && hasBack) {
-    pretreatment = PRETREATMENT_FRONT_AND_BACK;
-  } else if (hasFront || hasBack) {
-    pretreatment = PRETREATMENT_FRONT_ONLY;
-  }
+  if (enabledCount >= 2) pretreatment = config.pretreatmentMultiPosition;
+  else if (enabledCount === 1) pretreatment = config.pretreatmentOnePosition;
 
-  const collarLogo = input.addons.collarLogo ? COLLAR_LOGO_COST : 0;
-  const sleeveLeft = input.addons.sleeveLeft ? SLEEVE_COST : 0;
-  const sleeveRight = input.addons.sleeveRight ? SLEEVE_COST : 0;
+  const collarLogoAddon = config.addons.find((a) => a.code === "collarLogo");
+  const collarLogoCost = collarLogoAddon?.enabled ? collarLogoAddon.cost : 0;
+  const collarLogo = input.addons.collarLogo ? collarLogoCost : 0;
 
-  const whiteGarmentDiscount = input.isWhiteGarment ? WHITE_GARMENT_DISCOUNT : 0;
+  const whiteGarmentDiscount = input.isWhiteGarment
+    ? config.whiteGarmentDiscount
+    : 0;
+
+  const sidesCost = SIDE_KEYS.reduce(
+    (sum, { id }) => sum + (sides[id]?.finalCost ?? 0),
+    0
+  );
 
   const totalCostPerPiece =
-    (front?.finalCost ?? 0) +
-    (back?.finalCost ?? 0) +
-    pretreatment +
-    collarLogo +
-    sleeveLeft +
-    sleeveRight -
-    whiteGarmentDiscount;
+    sidesCost + pretreatment + collarLogo - whiteGarmentDiscount;
 
-  const sellingPriceBeforeMin = Math.ceil(totalCostPerPiece * (1 + MARKUP));
+  const sellingPriceBeforeMin = Math.ceil(totalCostPerPiece * (1 + config.markup));
 
-  const minSellingPrice = getMinSellingPrice(input.front, input.back);
+  const minSellingPrice = getMinSellingPrice(input.sides, config);
   const appliedMinSelling = sellingPriceBeforeMin < minSellingPrice;
   const sellingPricePerPiece = Math.max(sellingPriceBeforeMin, minSellingPrice);
 
   const quantity = Math.max(1, input.quantity);
-  const volumeDiscount = getVolumeDiscount(quantity);
+  const volumeDiscount = getVolumeDiscount(quantity, config);
   const discountedSellingPricePerPiece =
     volumeDiscount.rate > 0
       ? Math.ceil(sellingPricePerPiece * (1 - volumeDiscount.rate))
       : sellingPricePerPiece;
 
   return {
-    front,
-    back,
+    sides,
     pretreatment,
     collarLogo,
-    sleeveLeft,
-    sleeveRight,
     whiteGarmentDiscount,
     totalCostPerPiece,
     sellingPriceBeforeMin,
     minSellingPrice,
     appliedMinSelling,
     sellingPricePerPiece,
-    volumeDiscount,
-    discountedSellingPricePerPiece,
     quantity,
     totalCost: totalCostPerPiece * quantity,
+    volumeDiscount,
+    discountedSellingPricePerPiece,
     totalSellingPrice: discountedSellingPricePerPiece * quantity,
   };
 }

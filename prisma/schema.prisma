@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Singleton ค่าราคาหลัก (มี row เดียว id = 1)
+model PricingConfig {
+  id                        Int      @id @default(1)
+  costPerCc                 Float    @default(13)
+  smallDesignFlatCost       Float    @default(40)
+  maxInchForMinimum         Float    @default(5)
+  pretreatmentOnePosition   Float    @default(40)
+  pretreatmentMultiPosition Float    @default(70)
+  whiteGarmentDiscount      Float    @default(40)
+  markup                    Float    @default(0.35)
+  minSellingSmall           Float    @default(100)
+  minSellingLarge           Float    @default(150)
+  largeSizeThreshold        Float    @default(8)
+  updatedAt                 DateTime @updatedAt
+}
+
+model PaperSize {
+  id         Int    @id @default(autoincrement())
+  code       String @unique
+  label      String
+  widthInch  Float
+  heightInch Float
+  sortOrder  Int    @default(0)
+}
+
+model VolumeTier {
+  id     Int    @id @default(autoincrement())
+  minQty Int    @unique
+  rate   Float
+  label  String
+}
+
+model Addon {
+  id      Int     @id @default(autoincrement())
+  code    String  @unique
+  label   String
+  cost    Float
+  enabled Boolean @default(true)
+}
