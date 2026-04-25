@@ -168,7 +168,7 @@ export function calculate(
   const totalCostPerPiece =
     sidesCost + pretreatment + collarLogo - whiteGarmentDiscount;
 
-  const sellingPriceBeforeMin = Math.ceil(totalCostPerPiece * (1 + config.markup));
+  const sellingPriceBeforeMin = Math.ceil((totalCostPerPiece * (1 + config.markup)) / 10) * 10;
 
   const minSellingPrice = getMinSellingPrice(input.sides, config);
   const appliedMinSelling = sellingPriceBeforeMin < minSellingPrice;
@@ -178,7 +178,7 @@ export function calculate(
   const volumeDiscount = getVolumeDiscount(quantity, config);
   const discountedSellingPricePerPiece =
     volumeDiscount.rate > 0
-      ? Math.ceil(sellingPricePerPiece * (1 - volumeDiscount.rate))
+      ? Math.ceil((sellingPricePerPiece * (1 - volumeDiscount.rate)) / 10) * 10
       : sellingPricePerPiece;
 
   return {
