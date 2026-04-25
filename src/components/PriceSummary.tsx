@@ -41,6 +41,13 @@ function fmt(amount: number): string {
   });
 }
 
+function fmt2(amount: number): string {
+  return amount.toLocaleString("th-TH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 function Row({
   label,
   value,
@@ -174,12 +181,27 @@ function CalculationSummary({
         </span>
       </p>
 
-      <p>
-        × (1 + {config.markup}) → บวก markup {markupPct}% ={" "}
-        <span className="text-[var(--text-secondary)]">
-          {fmt(breakdown.sellingPriceBeforeMin)} ฿
-        </span>
-      </p>
+      {(() => {
+        const rawMarkup = breakdown.totalCostPerPiece * (1 + config.markup);
+        const rounded = breakdown.sellingPriceBeforeMin;
+        const wasRounded = Math.abs(rawMarkup - rounded) > 0.001;
+        return (
+          <>
+            <p>
+              × (1 + {config.markup}) → บวก markup {markupPct}% ={" "}
+              <span className="text-[var(--text-secondary)]">
+                {fmt2(rawMarkup)} ฿
+              </span>
+            </p>
+            {wasRounded && (
+              <p className="text-[var(--accent)]">
+                ↑ ปัดขึ้นเป็นหลักสิบ (เลขกลม) ={" "}
+                <span className="font-medium">{fmt(rounded)} ฿</span>
+              </p>
+            )}
+          </>
+        );
+      })()}
 
       {breakdown.appliedMinSelling && (
         <p className="text-[var(--orange)]">
@@ -188,13 +210,27 @@ function CalculationSummary({
         </p>
       )}
 
-      {breakdown.volumeDiscount.rate > 0 && (
-        <p className="text-[var(--green)]">
-          ลดตามจำนวน {breakdown.volumeDiscount.rate * 100}% (
-          {breakdown.volumeDiscount.label}) ={" "}
-          {fmt(breakdown.discountedSellingPricePerPiece)} ฿
-        </p>
-      )}
+      {breakdown.volumeDiscount.rate > 0 && (() => {
+        const rawDiscounted =
+          breakdown.sellingPricePerPiece * (1 - breakdown.volumeDiscount.rate);
+        const rounded = breakdown.discountedSellingPricePerPiece;
+        const wasRounded = Math.abs(rawDiscounted - rounded) > 0.001;
+        return (
+          <>
+            <p className="text-[var(--green)]">
+              × (1 − {breakdown.volumeDiscount.rate}) → ลดตามจำนวน{" "}
+              {breakdown.volumeDiscount.rate * 100}% ({breakdown.volumeDiscount.label})
+              = {fmt2(rawDiscounted)} ฿
+            </p>
+            {wasRounded && (
+              <p className="text-[var(--accent)]">
+                ↑ ปัดขึ้นเป็นหลักสิบ (เลขกลม) ={" "}
+                <span className="font-medium">{fmt(rounded)} ฿</span>
+              </p>
+            )}
+          </>
+        );
+      })()}
 
       <p className="pt-1 border-t border-[var(--border)]">
         <span className="text-[var(--text-secondary)]">ราคาขายสุดท้าย / ตัว</span>{" "}
